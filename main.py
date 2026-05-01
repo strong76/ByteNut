@@ -180,7 +180,55 @@ class BytenutRenewal:
             return True
         return False
 
-    # ---------- Turnstile 处理（加入滚动） ----------
+    # ---------- 清除遮挡广告 ----------
+    def remove_overlay_ads(self, sb):
+        """注入 JS 移除各类广告遮挡元素，确保 Turnstile 可见"""
+        try:
+            sb.execute_script("""
+                (function() {
+                    // 移除常见的广告容器、弹窗、固定底部栏等
+                    var selectors = [
+                        'ins.adsbygoogle',
+                        'iframe[id^="aswift"]',
+                        'div[id^="google_ads"]',
+                        'div[class*="ad-"]',
+                        'div[class*="ads-"]',
+                        'div[id*="ad-"]',
+                        'div[id*="ads-"]',
+                        '.ad-container',
+                        '.ads-wrapper',
+                        '.fixed-bottom-banner',
+                        '.ezoic-floating-bottom',
+                        '.fc-ab-root',
+                        '[class*="overlay"]',
+                        '[class*="popup"]',
+                        '[id*="popup"]',
+                        '.modal-backdrop'
+                    ];
+                    selectors.forEach(function(s) {
+                        document.querySelectorAll(s).forEach(function(el) {
+                            // 不删除包含 Turnstile 或续期相关内容的元素
+                            if (el.innerHTML.indexOf('turnstile') !== -1 ||
+                                el.innerHTML.indexOf('cf-turnstile') !== -1 ||
+                                el.innerHTML.indexOf('extend-btn') !== -1) {
+                                return;
+                            }
+                            el.style.display = 'none';
+                            el.style.visibility = 'hidden';
+                            el.style.height = '0px';
+                            el.width = '0px';
+                        });
+                    });
+                    // 强制恢复 body 滚动，防止 position: fixed 的影响
+                    document.body.style.overflow = 'auto';
+                    document.body.style.position = 'static';
+                })();
+            """)
+            self.log("🗑️ 已尝试移除广告遮挡元素")
+        except Exception as e:
+            self.log(f"移除遮挡元素失败: {e}")
+
+    # ---------- Turnstile 处理（加入滚动与遮挡清除） ----------
     def is_turnstile_present(self, sb):
         try:
             return sb.execute_script("""
@@ -199,6 +247,8 @@ class BytenutRenewal:
         start = time.time()
         last_click = 0
         while time.time() - start < timeout:
+            # 清除广告遮挡
+            self.remove_overlay_ads(sb)
             # 滚动到 Turnstile 可见区域
             try:
                 sb.execute_script("""
@@ -239,6 +289,8 @@ class BytenutRenewal:
             self.log("Turnstile 未通过")
             return False, ""
 
+        # 点击前再清除一次，防止按钮被遮挡
+        self.remove_overlay_ads(sb)
         self.log("⏳ 尝试点击续期按钮...")
         button_clicked = False
         try:
