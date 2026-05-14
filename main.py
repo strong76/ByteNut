@@ -279,40 +279,46 @@ class BytenutRenewal:
             time.sleep(interval)
         return False
 
-    # ========== 广告清理 ==========
+    # ---------- 移除遮挡广告 ----------
     def remove_overlay_ads(self, sb):
         try:
             sb.execute_script("""
-                (function(){
-                    var a = document.getElementById('ez-accept-all');
-                    if (a) a.click();
-                    var keep = ['turnstile','cf-turnstile','extend-btn',
-                                'adsterra-rewarded','Claim Reward','Watch Ad',
-                                'start-btn','Start','Continue',
-                                'RENEW SERVER','el-menu'];
-                    ['ins.adsbygoogle','iframe[id^="aswift"]',
-                     'div[id^="google_ads"]',
-                     'div[class*="ad-"]:not([class*="adsterra-rewarded"])',
-                     'div[class*="ads-"]',
-                     'div[id*="ad-"]:not([id*="adsterra"])',
-                     'div[id*="ads-"]','.ad-container','.ads-wrapper',
-                     '.fixed-bottom-banner','.ezoic-floating-bottom',
-                     '.fc-ab-root'
-                    ].forEach(function(s){
-                        document.querySelectorAll(s).forEach(function(el){
-                            if (keep.some(function(k){
-                                return el.innerHTML.indexOf(k) !== -1;
-                            })) return;
-                            el.style.cssText += 'display:none!important;'
-                                + 'visibility:hidden!important;'
-                                + 'height:0!important;width:0!important;';
+                (function() {
+                    // 1. 自动点击 EZ Cookie 同意按钮
+                    var acceptBtn = document.getElementById('ez-accept-all');
+                    if (acceptBtn) {
+                        acceptBtn.click();
+                    }
+
+                    // 2. 隐藏其他广告遮挡元素
+                    var selectors = [
+                        'ins.adsbygoogle', 'iframe[id^="aswift"]', 'div[id^="google_ads"]',
+                        'div[class*="ad-"]:not([class*="adsterra-rewarded"])', 'div[class*="ads-"]',
+                        'div[id*="ad-"]:not([id*="adsterra"])', 'div[id*="ads-"]',
+                        '.ad-container', '.ads-wrapper', '.fixed-bottom-banner',
+                        '.ezoic-floating-bottom', '.fc-ab-root'
+                    ];
+                    selectors.forEach(function(s) {
+                        document.querySelectorAll(s).forEach(function(el) {
+                            if (el.innerHTML.indexOf('turnstile') !== -1 ||
+                                el.innerHTML.indexOf('cf-turnstile') !== -1 ||
+                                el.innerHTML.indexOf('extend-btn') !== -1 ||
+                                el.innerHTML.indexOf('adsterra-rewarded') !== -1 ||
+                                el.innerHTML.indexOf('Claim Reward') !== -1 ||
+                                el.innerHTML.indexOf('Watch Ad') !== -1) {
+                                return;
+                            }
+                            el.style.display = 'none';
+                            el.style.visibility = 'hidden';
+                            el.style.height = '0px';
+                            el.width = '0px';
                         });
                     });
                     document.body.style.overflow = 'auto';
                     document.body.style.position = 'static';
                 })();
             """)
-        except Exception:
+        except:
             pass
     
     # ========== Turnstile ==========
